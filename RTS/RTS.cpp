@@ -5,7 +5,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <wtypes.h>
-#define NUM_FRAMES 1000
+#define NUM_FRAMES 420 // Set to match SoundStretch buffer length
 
 int main()
 {
