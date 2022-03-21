@@ -139,15 +139,48 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AAFilter.cpp" />
     <ClCompile Include="AudioIn.cpp" />
     <ClCompile Include="AudioOut.cpp" />
     <ClCompile Include="AudioProcessing.cpp" />
+    <ClCompile Include="BPMDetect.cpp" />
+    <ClCompile Include="cpu_detect_x86.cpp" />
+    <ClCompile Include="FIFOSampleBuffer.cpp" />
+    <ClCompile Include="FIRFilter.cpp" />
+    <ClCompile Include="Integrate.cpp" />
+    <ClCompile Include="InterpolateCubic.cpp" />
+    <ClCompile Include="InterpolateLinear.cpp" />
+    <ClCompile Include="InterpolateShannon.cpp" />
+    <ClCompile Include="mmx_optimized.cpp" />
+    <ClCompile Include="PeakFinder.cpp" />
+    <ClCompile Include="RateTransposer.cpp" />
     <ClCompile Include="RTS.cpp" />
+    <ClCompile Include="RunParameters.cpp" />
+    <ClCompile Include="SoundTouch.cpp" />
+    <ClCompile Include="TDStretch.cpp" />
+    <ClCompile Include="WavFile.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AAFilter.h" />
     <ClInclude Include="AudioIn.h" />
     <ClInclude Include="AudioOutr.h" />
     <ClInclude Include="AudioProcessing.h" />
+    <ClInclude Include="BPMDetect.h" />
+    <ClInclude Include="cpu_detect.h" />
+    <ClInclude Include="FIFOSampleBuffer.h" />
+    <ClInclude Include="FIFOSamplePipe.h" />
+    <ClInclude Include="FIRFilter.h" />
+    <ClInclude Include="InterpolateCubic.h" />
+    <ClInclude Include="InterpolateLinear.h" />
+    <ClInclude Include="InterpolateShannon.h" />
+    <ClInclude Include="PeakFinder.h" />
+    <ClInclude Include="RateTransposer.h" />
+    <ClInclude Include="RunParameters.h" />
+    <ClInclude Include="SoundTouch.h" />
+    <ClInclude Include="soundtouch_config.h" />
+    <ClInclude Include="STTypes.h" />
+    <ClInclude Include="TDStretch.h" />
+    <ClInclude Include="WavFile.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

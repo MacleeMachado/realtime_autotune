@@ -27,6 +27,54 @@
     <ClCompile Include="AudioOut.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SoundTouch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TDStretch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RunParameters.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AAFilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BPMDetect.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cpu_detect_x86.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FIFOSampleBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FIRFilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Integrate.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="InterpolateCubic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="InterpolateLinear.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="InterpolateShannon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="mmx_optimized.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PeakFinder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RateTransposer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WavFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioIn.h">
@@ -36,6 +84,57 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AudioOutr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RunParameters.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TDStretch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cpu_detect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FIRFilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InterpolateCubic.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InterpolateLinear.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InterpolateShannon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PeakFinder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RateTransposer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AAFilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WavFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="soundtouch_config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="STTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BPMDetect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FIFOSampleBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FIFOSamplePipe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SoundTouch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
