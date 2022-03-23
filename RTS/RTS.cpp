@@ -13,6 +13,7 @@
 #include <string.h>
 #include <time.h>
 #include <io.h>
+#include <fcntl.h>
 
 #include "SoundTouch.h"
 #include "RunParameters.h"
@@ -31,16 +32,7 @@
 using namespace soundtouch;
 using namespace std;
 
-#if _WIN32
-    #include <io.h>
-    #include <fcntl.h>
-
-    // Macro for Win32 standard input/output stream support: Sets a file stream into binary mode
-    #define SET_STREAM_TO_BIN_MODE(f) (_setmode(_fileno(f), _O_BINARY))
-#else
-    // Not needed for GNU environment... 
-    #define SET_STREAM_TO_BIN_MODE(f) {}
-#endif
+#define SET_STREAM_TO_BIN_MODE(f) (_setmode(_fileno(f), _O_BINARY))
 
 
 static void openOutputFile(WavOutFile** outFile, const RunParameters* params)
@@ -118,9 +110,8 @@ static void setup(SoundTouch* pSoundTouch, const RunParameters* params)
 }
 
 // Processes the sound
-static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* outFile)
+static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* outFile, DWORD nSamples)
 {
-    int nSamples;
     int nChannels;
     int buffSizeSamples;
 
@@ -132,7 +123,8 @@ static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* out
 
 
     // Feed the samples into SoundTouch processor
-    pSoundTouch->putSamples(sampleBuffer, nSamples);
+    short* stSampleBuffer = reinterpret_cast<short*>(sampleBuffer);
+    pSoundTouch->putSamples(stSampleBuffer, nSamples);
 
     // Read ready samples from SoundTouch processor & write them output file.
     // NOTES:
@@ -144,8 +136,8 @@ static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* out
     //   outputs samples.
     do
     {
-        nSamples = pSoundTouch->receiveSamples(sampleBuffer, buffSizeSamples);
-        outFile->write(sampleBuffer, nSamples * nChannels);
+        nSamples = pSoundTouch->receiveSamples(stSampleBuffer, buffSizeSamples);
+        outFile->write(stSampleBuffer, nSamples * nChannels);
     } while (nSamples != 0);
 
     // Now the input file is processed, yet 'flush' few last samples that are
@@ -153,26 +145,28 @@ static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* out
     pSoundTouch->flush();
     do
     {
-        nSamples = pSoundTouch->receiveSamples(sampleBuffer, buffSizeSamples);
-        outFile->write(sampleBuffer, nSamples * nChannels);
+        nSamples = pSoundTouch->receiveSamples(stSampleBuffer, buffSizeSamples);
+        outFile->write(stSampleBuffer, nSamples * nChannels);
     } while (nSamples != 0);
 }
 
 
 int main(const int nParams, const char* const paramStr[])
 {
+
     WavOutFile* outFile;
     RunParameters* params;
     SoundTouch soundTouch;
     HWAVEIN   inStream;
     HWAVEOUT outStream;
     WAVEFORMATEX waveFormat;
-    WAVEHDR buffer[1];
+    WAVEHDR buffer;
     MMRESULT res;
 
-    // SoundStretch SetUp
+    cout << paramStr[0] << " " << paramStr[1] << " " << paramStr[2] << endl;
 
-    fprintf(stderr, _helloText, SoundTouch::getVersionString());
+    // SoundStretch SetU
+
 
     // Parse command line parameters
     params = new RunParameters(nParams, paramStr);
@@ -201,8 +195,6 @@ int main(const int nParams, const char* const paramStr[])
 
     // Event: default security descriptor, Manual Reset, initial non-signaled
     HANDLE event = CreateEvent(NULL, TRUE, FALSE, widestring);
-    //buffer[0].dwBytesRecorded = 0;
-    cout << "First " << buffer[0].dwBytesRecorded << endl;
 
     cout << "waveinopen" << endl;
     res = waveInOpen(&inStream, WAVE_MAPPER, &waveFormat, (unsigned long)event,
@@ -261,12 +253,12 @@ int main(const int nParams, const char* const paramStr[])
 
 
     // initialize the input and output PingPong buffers
-    buffer[0].dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
-    buffer[0].lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
-    buffer[0].dwFlags = 0;
+    buffer.dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
+    buffer.lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
+    buffer.dwFlags = 0;
 
     cout << "WAVE IN PREPARE" << endl;
-    res = waveInPrepareHeader(inStream, &buffer[0], sizeof(WAVEHDR));
+    res = waveInPrepareHeader(inStream, &buffer, sizeof(WAVEHDR));
     if (res == MMSYSERR_NOERROR) {
         cout << "PREPARED WITHOUT ERROR" << endl;
     }
@@ -284,7 +276,7 @@ int main(const int nParams, const char* const paramStr[])
             return -10;
         }
     }
-    res = waveOutPrepareHeader(outStream, &buffer[0], sizeof(WAVEHDR));
+    res = waveOutPrepareHeader(outStream, &buffer, sizeof(WAVEHDR));
     if (res == MMSYSERR_NOERROR) {
         cout << "PREPARED WITHOUT ERROR" << endl;
     }
@@ -303,9 +295,9 @@ int main(const int nParams, const char* const paramStr[])
         }
     }
 
-    cout << "Flags: " << buffer[0].dwFlags << endl;
+    cout << "Flags: " << buffer.dwFlags << endl;
 
-    if (buffer[0].dwFlags & WHDR_PREPARED) {
+    if (buffer.dwFlags & WHDR_PREPARED) {
         cout << "PREPARED" << endl;
     }
 
@@ -313,20 +305,20 @@ int main(const int nParams, const char* const paramStr[])
     while (1) {
         cout << "reset event" << endl;
         ResetEvent(event);
-        waveInAddBuffer(inStream, &buffer[0], sizeof(WAVEHDR));
+        waveInAddBuffer(inStream, &buffer, sizeof(WAVEHDR));
         waveInStart(inStream);
 
         cout << "while" << endl;
-        cout << "Wanted Length: " << buffer[0].dwBufferLength << endl;
-        cout << "First Byte Rec: " << buffer[0].dwBytesRecorded << endl;
-        while (!(buffer[0].dwFlags & WHDR_DONE)) {
-            cout << "flag: " << buffer[0].dwFlags << endl;
-            cout << "Bytes Rec: " << buffer[0].dwBytesRecorded << endl;
+        cout << "Wanted Length: " << buffer.dwBufferLength << endl;
+        cout << "First Byte Rec: " << buffer.dwBytesRecorded << endl;
+        while (!(buffer.dwFlags & WHDR_DONE)) {
+            cout << "flag: " << buffer.dwFlags << endl;
+            cout << "Bytes Rec: " << buffer.dwBytesRecorded << endl;
         }// poll until buffer is full
 
         // clock_t cs = clock();    // for benchmarking processing duration
         // Process the sound
-        process(&soundTouch, buffer[0].lpData, outFile);
+        process(&soundTouch, buffer.lpData, outFile, buffer.dwBytesRecorded);
         // clock_t ce = clock();    // for benchmarking processing duration
         // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
     }
@@ -358,13 +350,13 @@ int main(const int nParams, const char* const paramStr[])
     */
 
     // Clean Up Work
-    waveOutUnprepareHeader(outStream, &buffer[0], sizeof(WAVEHDR));
-    waveInUnprepareHeader(inStream, &buffer[0], sizeof(WAVEHDR));
+    waveOutUnprepareHeader(outStream, &buffer, sizeof(WAVEHDR));
+    waveInUnprepareHeader(inStream, &buffer, sizeof(WAVEHDR));
     waveInClose(inStream);
     waveOutClose(outStream);
     // Close WAV file handles & dispose of the objects
     delete outFile;
     delete params;
 
-    buffer[0].lpData = NULL;
+    buffer.lpData = NULL;
 }
