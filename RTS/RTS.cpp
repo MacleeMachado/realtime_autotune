@@ -22,12 +22,14 @@
 
 #pragma comment (lib, "winmm.lib")
 
-#define NUM_FRAMES 1680 // BUFF_SIZE / 4
+//67200 and 268800
+
+#define NUM_FRAMES 67200 // BUFF_SIZE / 4
 #define NUM_CHANNELS 2
 #define SAMPLE_RATE 22050
 #define NUM_BITS 16
 // Processing chunk size (size chosen to be divisible by 2, 4, 6, 8, 10, 12, 14, 16 channels ...)
-#define BUFF_SIZE           6720
+#define BUFF_SIZE           268800
 
 using namespace soundtouch;
 using namespace std;
@@ -124,6 +126,20 @@ static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* out
 
     // Feed the samples into SoundTouch processor
     short* stSampleBuffer = reinterpret_cast<short*>(sampleBuffer);
+    int i = 0;
+    while (i < NUM_FRAMES) {
+        *(stSampleBuffer++) = *reinterpret_cast<short*>(sampleBuffer++);
+        stSampleBuffer++;
+        sampleBuffer++;
+        i++;
+    }
+
+    while (i > 0) {
+        stSampleBuffer--;
+        i--;
+    }
+    cout << *stSampleBuffer << endl;
+    cout << *sampleBuffer << endl;
     pSoundTouch->putSamples(stSampleBuffer, nSamples);
 
     // Read ready samples from SoundTouch processor & write them output file.
@@ -163,13 +179,17 @@ int main(const int nParams, const char* const paramStr[])
     WAVEHDR buffer;
     MMRESULT res;
 
-    cout << paramStr[0] << " " << paramStr[1] << " " << paramStr[2] << endl;
+    //cout << paramStr[0] << " " << paramStr[1] << " " << paramStr[2] << endl;
+
+    const char* const paramS[] = {"RTS.exe","null", "test.wav", "-pitch=25\n"};
+
+    cout << paramS << endl;
 
     // SoundStretch SetU
 
 
     // Parse command line parameters
-    params = new RunParameters(nParams, paramStr);
+    params = new RunParameters(3, paramS);
 
     // Open output file
     openOutputFile(&outFile, params);
@@ -302,7 +322,6 @@ int main(const int nParams, const char* const paramStr[])
     }
 
     // Processing While Loop (!) Need to decide how much read setup must be included.
-    while (1) {
         cout << "reset event" << endl;
         ResetEvent(event);
         waveInAddBuffer(inStream, &buffer, sizeof(WAVEHDR));
@@ -312,16 +331,15 @@ int main(const int nParams, const char* const paramStr[])
         cout << "Wanted Length: " << buffer.dwBufferLength << endl;
         cout << "First Byte Rec: " << buffer.dwBytesRecorded << endl;
         while (!(buffer.dwFlags & WHDR_DONE)) {
-            cout << "flag: " << buffer.dwFlags << endl;
-            cout << "Bytes Rec: " << buffer.dwBytesRecorded << endl;
+            //cout << "flag: " << buffer.dwFlags << endl;
+            //cout << "Bytes Rec: " << buffer.dwBytesRecorded << endl;
         }// poll until buffer is full
 
         // clock_t cs = clock();    // for benchmarking processing duration
         // Process the sound
-        process(&soundTouch, buffer.lpData, outFile, buffer.dwBytesRecorded);
+        process(&soundTouch, buffer.lpData, outFile, buffer.dwBytesRecorded/8);
         // clock_t ce = clock();    // for benchmarking processing duration
         // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
-    }
 
     // move the buffer to output
     cout << "WaveOut" << endl;
@@ -355,6 +373,7 @@ int main(const int nParams, const char* const paramStr[])
     waveInClose(inStream);
     waveOutClose(outStream);
     // Close WAV file handles & dispose of the objects
+    fclose(outFile);
     delete outFile;
     delete params;
 
