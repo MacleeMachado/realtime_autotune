@@ -125,19 +125,7 @@ static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* out
 
 
     // Feed the samples into SoundTouch processor
-    short* stSampleBuffer = reinterpret_cast<short*>(sampleBuffer);
-    int i = 0;
-    while (i < NUM_FRAMES) {
-        *(stSampleBuffer++) = *reinterpret_cast<short*>(sampleBuffer++);
-        stSampleBuffer++;
-        sampleBuffer++;
-        i++;
-    }
-
-    while (i > 0) {
-        stSampleBuffer--;
-        i--;
-    }
+    short* stSampleBuffer = (short*)(sampleBuffer);
     cout << *stSampleBuffer << endl;
     cout << *sampleBuffer << endl;
     pSoundTouch->putSamples(stSampleBuffer, nSamples);
@@ -181,15 +169,16 @@ int main(const int nParams, const char* const paramStr[])
 
     //cout << paramStr[0] << " " << paramStr[1] << " " << paramStr[2] << endl;
 
-    const char* const paramS[] = {"RTS.exe","null", "test.wav", "-pitch=25\n"};
+    const char* const paramS[] = {"RTS.exe", "null", "test.wav", "-pitch=5"};
 
     cout << paramS << endl;
 
-    // SoundStretch SetU
+    // SoundStretch SetUp
+
 
 
     // Parse command line parameters
-    params = new RunParameters(3, paramS);
+    params = new RunParameters(4, paramS);
 
     // Open output file
     openOutputFile(&outFile, params);
@@ -332,19 +321,22 @@ int main(const int nParams, const char* const paramStr[])
         cout << "First Byte Rec: " << buffer.dwBytesRecorded << endl;
         while (!(buffer.dwFlags & WHDR_DONE)) {
             //cout << "flag: " << buffer.dwFlags << endl;
-            //cout << "Bytes Rec: " << buffer.dwBytesRecorded << endl;
+            cout << "Bytes Rec: " << buffer.dwBytesRecorded << endl;
         }// poll until buffer is full
 
         // clock_t cs = clock();    // for benchmarking processing duration
         // Process the sound
-        process(&soundTouch, buffer.lpData, outFile, buffer.dwBytesRecorded/8);
+        process(&soundTouch, buffer.lpData, outFile, buffer.dwBytesRecorded/4);
         // clock_t ce = clock();    // for benchmarking processing duration
         // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
 
+        
     // move the buffer to output
     cout << "WaveOut" << endl;
-    /* Focusing on writing to output file instead
-    res = waveOutWrite(outStream, &buffer[0], sizeof(WAVEHDR));
+     //Focusing on writing to output file instead
+    
+    Sleep(1000);
+    res = waveOutWrite(outStream, &buffer, sizeof(WAVEHDR));
     if (res == MMSYSERR_NOERROR) {
         cout << "WAVEOUT WITHOUT ERROR" << endl;
     }
@@ -365,7 +357,9 @@ int main(const int nParams, const char* const paramStr[])
             return -10;
         }
     }
-    */
+
+    Sleep(10000);
+    
 
     // Clean Up Work
     waveOutUnprepareHeader(outStream, &buffer, sizeof(WAVEHDR));
@@ -373,7 +367,7 @@ int main(const int nParams, const char* const paramStr[])
     waveInClose(inStream);
     waveOutClose(outStream);
     // Close WAV file handles & dispose of the objects
-    fclose(outFile);
+  
     delete outFile;
     delete params;
 
