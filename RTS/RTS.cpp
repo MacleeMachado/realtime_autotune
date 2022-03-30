@@ -20,6 +20,9 @@
 #include "WavFile.h"
 #include "BPMDetect.h"
 
+#include "processbuffer.h"
+#include "targetfreq.h"
+
 #pragma comment (lib, "winmm.lib")
 
 //67200 and 268800
@@ -112,7 +115,7 @@ static void setup(SoundTouch* pSoundTouch, const RunParameters* params)
 }
 
 // Processes the sound
-static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* outFile, DWORD nSamples)
+static void process(SoundTouch* pSoundTouch, short* sampleBuffer, WavOutFile* outFile, DWORD nSamples)
 {
     int nChannels;
     int buffSizeSamples;
@@ -125,10 +128,7 @@ static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* out
 
 
     // Feed the samples into SoundTouch processor
-    short* stSampleBuffer = (short*)(sampleBuffer);
-    cout << *stSampleBuffer << endl;
-    cout << *sampleBuffer << endl;
-    pSoundTouch->putSamples(stSampleBuffer, nSamples);
+    pSoundTouch->putSamples(sampleBuffer, nSamples);
 
     // Read ready samples from SoundTouch processor & write them output file.
     // NOTES:
@@ -140,8 +140,8 @@ static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* out
     //   outputs samples.
     do
     {
-        nSamples = pSoundTouch->receiveSamples(stSampleBuffer, buffSizeSamples);
-        outFile->write(stSampleBuffer, nSamples * nChannels);
+        nSamples = pSoundTouch->receiveSamples(sampleBuffer, buffSizeSamples);
+        outFile->write(sampleBuffer, nSamples * nChannels);
     } while (nSamples != 0);
 
     // Now the input file is processed, yet 'flush' few last samples that are
@@ -149,8 +149,8 @@ static void process(SoundTouch* pSoundTouch, LPSTR sampleBuffer, WavOutFile* out
     pSoundTouch->flush();
     do
     {
-        nSamples = pSoundTouch->receiveSamples(stSampleBuffer, buffSizeSamples);
-        outFile->write(stSampleBuffer, nSamples * nChannels);
+        nSamples = pSoundTouch->receiveSamples(sampleBuffer, buffSizeSamples);
+        outFile->write(sampleBuffer, nSamples * nChannels);
     } while (nSamples != 0);
 }
 
@@ -323,10 +323,33 @@ int main(const int nParams, const char* const paramStr[])
             //cout << "flag: " << buffer.dwFlags << endl;
             cout << "Bytes Rec: " << buffer.dwBytesRecorded << endl;
         }// poll until buffer is full
+    
+        int numSamples = buffer.dwBytesRecorded/4;
+        short* sampleBuffer = (short*)(buffer.lpData);
+    
+        // Pitch Detection from Pitcher
+        int k, chan;
+
+        // Construct a valarray of complex numbers from the input buffer
+        CVector bufferVector;
+        bufferVector.resize(numSamples);
+
+        for (chan = 0; chan < NUM_CHANNELS; chan++) {
+         for (k = chan; k < numSamples; k += NUM_CHANNELS) {
+              // Convert each value in the buffer into a complex number
+             bufferVector[k] = CNum(sampleBuffer[k], 0);
+         }
+       }
+
+            // Calculate the fundamental frequency
+         double fund = fundamental(bufferVector, SAMPLE_RATE);
+         // Calculate the target freqency and scale factor
+         int cent_diff = getTargetFreq(fund);
+    
 
         // clock_t cs = clock();    // for benchmarking processing duration
         // Process the sound
-        process(&soundTouch, buffer.lpData, outFile, buffer.dwBytesRecorded/4);
+        process(&soundTouch, sampleBuffer, outFile, numSamples);
         // clock_t ce = clock();    // for benchmarking processing duration
         // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
 
