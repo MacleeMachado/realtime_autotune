@@ -20,8 +20,12 @@
 #include "WavFile.h"
 #include "BPMDetect.h"
 
-#include "processbuffer.h"
+//#include "processbuffer.h"
+#include "fourier.h"
+#include "fundamental.h"
 #include "targetfreq.h"
+//#include "targetfreq.h"
+#include <string>
 
 #pragma comment (lib, "winmm.lib")
 
@@ -345,6 +349,8 @@ int main(const int nParams, const char* const paramStr[])
          double fund = fundamental(bufferVector, SAMPLE_RATE);
          // Calculate the target freqency and scale factor
          int cent_diff = getTargetFreq(fund);
+         cout << "****" << endl;
+         cout << cent_diff << endl;
     
 
         // clock_t cs = clock();    // for benchmarking processing duration

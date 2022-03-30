@@ -29,26 +29,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -145,9 +145,11 @@
     <ClCompile Include="AudioProcessing.cpp" />
     <ClCompile Include="BPMDetect.cpp" />
     <ClCompile Include="cpu_detect_x86.cpp" />
+    <ClCompile Include="fft.cpp" />
     <ClCompile Include="FIFOSampleBuffer.cpp" />
     <ClCompile Include="FIRFilter.cpp" />
-    <ClCompile Include="Integrate.cpp" />
+    <ClCompile Include="fundamental.cpp" />
+    <ClCompile Include="ifft.cpp" />
     <ClCompile Include="InterpolateCubic.cpp" />
     <ClCompile Include="InterpolateLinear.cpp" />
     <ClCompile Include="InterpolateShannon.cpp" />
@@ -157,6 +159,7 @@
     <ClCompile Include="RTS.cpp" />
     <ClCompile Include="RunParameters.cpp" />
     <ClCompile Include="SoundTouch.cpp" />
+    <ClCompile Include="targetfreq.cpp" />
     <ClCompile Include="TDStretch.cpp" />
     <ClCompile Include="WavFile.cpp" />
   </ItemGroup>
@@ -170,6 +173,8 @@
     <ClInclude Include="FIFOSampleBuffer.h" />
     <ClInclude Include="FIFOSamplePipe.h" />
     <ClInclude Include="FIRFilter.h" />
+    <ClInclude Include="fourier.h" />
+    <ClInclude Include="fundamental.h" />
     <ClInclude Include="InterpolateCubic.h" />
     <ClInclude Include="InterpolateLinear.h" />
     <ClInclude Include="InterpolateShannon.h" />
@@ -179,6 +184,7 @@
     <ClInclude Include="SoundTouch.h" />
     <ClInclude Include="soundtouch_config.h" />
     <ClInclude Include="STTypes.h" />
+    <ClInclude Include="targetfreq.h" />
     <ClInclude Include="TDStretch.h" />
     <ClInclude Include="WavFile.h" />
   </ItemGroup>

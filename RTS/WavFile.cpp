@@ -168,7 +168,7 @@ void *WavFileBase::getConvBuffer(int sizeBytes)
 //
 // Class WavInFile
 //
-
+#pragma warning (disable : 4996)
 WavInFile::WavInFile(const char *fileName)
 {
     // Try to open the file for reading
@@ -702,7 +702,7 @@ uint WavInFile::getElapsedMS() const
 //
 // Class WavOutFile
 //
-
+#pragma warning (disable : 4996)
 WavOutFile::WavOutFile(const char *fileName, int sampleRate, int bits, int channels)
 {
     bytesWritten = 0;
