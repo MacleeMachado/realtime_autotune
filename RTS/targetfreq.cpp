@@ -10,7 +10,7 @@
 
 #include "targetfreq.h"
 
-double getTargetFreq(double actualFreq) {
+int getTargetFreq(double actualFreq) {
   // Frequency in Hz of A4
   double A4 = 440;
   // Frequency in Hz of C0
@@ -24,4 +24,5 @@ double getTargetFreq(double actualFreq) {
   double difference = semitonesRounded - semitonesFromC0;
   // Calculate cents
   int cents = (int) (difference * 100);
+  return cents;
 }
