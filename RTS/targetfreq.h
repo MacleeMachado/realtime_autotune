@@ -10,11 +10,10 @@
 #define _TARGET_FREQ_H_
 
 /**
- * Calculates nearest frequency that corresponds to a note in the key
+ * Returns amount of cents needed for autotune correction.
  * @param actualFreq The frequency of the signal (can be estimated using
  *     fundamental())
- * @param key The desired key in which to search for the closest acceptable note
  */
-double getTargetFreq(double actualFreq, int key);
+int getTargetFreq(double actualFreq);
 
 #endif
