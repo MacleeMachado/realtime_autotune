@@ -22,7 +22,5 @@ int getTargetFreq(double actualFreq) {
   double semitonesRounded = std::round(semitonesFromC0);
   // Take difference
   double difference = semitonesRounded - semitonesFromC0;
-  // Calculate cents
-  int cents = (int) (difference * 100);
-  return cents;
+  return difference;
 }
