@@ -263,58 +263,62 @@ int main(const int nParams, const char* const paramStr[])
         }
     }
 
-
-
-    // initialize the input and output PingPong buffers
     buffer.dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
     buffer.lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
     buffer.dwFlags = 0;
 
-    cout << "WAVE IN PREPARE" << endl;
-    res = waveInPrepareHeader(inStream, &buffer, sizeof(WAVEHDR));
-    if (res == MMSYSERR_NOERROR) {
-        cout << "PREPARED WITHOUT ERROR" << endl;
-    }
-    else {
-        if (res == MMSYSERR_INVALHANDLE) {
-            return -7;
-        }
-        else if (res == MMSYSERR_NODRIVER) {
-            return -3;
-        }
-        else if (res == MMSYSERR_NOMEM) {
-            return -4;
+    while (true) {
+
+        // initialize the input and output PingPong buffers
+        memset(buffer.lpData, 0, NUM_FRAMES * (waveFormat.nBlockAlign));
+        buffer.dwFlags = 0;
+
+        cout << "WAVE IN PREPARE" << endl;
+        res = waveInPrepareHeader(inStream, &buffer, sizeof(WAVEHDR));
+        if (res == MMSYSERR_NOERROR) {
+            cout << "PREPARED WITHOUT ERROR" << endl;
         }
         else {
-            return -10;
+            if (res == MMSYSERR_INVALHANDLE) {
+                return -7;
+            }
+            else if (res == MMSYSERR_NODRIVER) {
+                return -3;
+            }
+            else if (res == MMSYSERR_NOMEM) {
+                return -4;
+            }
+            else {
+                return -10;
+            }
         }
-    }
-    res = waveOutPrepareHeader(outStream, &buffer, sizeof(WAVEHDR));
-    if (res == MMSYSERR_NOERROR) {
-        cout << "PREPARED WITHOUT ERROR" << endl;
-    }
-    else {
-        if (res == MMSYSERR_INVALHANDLE) {
-            return -7;
-        }
-        else if (res == MMSYSERR_NODRIVER) {
-            return -3;
-        }
-        else if (res == MMSYSERR_NOMEM) {
-            return -4;
+        res = waveOutPrepareHeader(outStream, &buffer, sizeof(WAVEHDR));
+        if (res == MMSYSERR_NOERROR) {
+            cout << "PREPARED WITHOUT ERROR" << endl;
         }
         else {
-            return -10;
+            if (res == MMSYSERR_INVALHANDLE) {
+                return -7;
+            }
+            else if (res == MMSYSERR_NODRIVER) {
+                return -3;
+            }
+            else if (res == MMSYSERR_NOMEM) {
+                return -4;
+            }
+            else {
+                return -10;
+            }
         }
-    }
 
-    cout << "Flags: " << buffer.dwFlags << endl;
+        cout << "Flags: " << buffer.dwFlags << endl;
 
-    if (buffer.dwFlags & WHDR_PREPARED) {
-        cout << "PREPARED" << endl;
-    }
+        if (buffer.dwFlags & WHDR_PREPARED) {
+            cout << "PREPARED" << endl;
+        }
 
     // Processing While Loop (!) Need to decide how much read setup must be included.
+    
         cout << "reset event" << endl;
         ResetEvent(event);
         waveInAddBuffer(inStream, &buffer, sizeof(WAVEHDR));
@@ -327,10 +331,10 @@ int main(const int nParams, const char* const paramStr[])
             //cout << "flag: " << buffer.dwFlags << endl;
             cout << "Bytes Rec: " << buffer.dwBytesRecorded << endl;
         }// poll until buffer is full
-    
-        int numSamples = buffer.dwBytesRecorded/4;
+
+        int numSamples = buffer.dwBytesRecorded / 4;
         short* sampleBuffer = (short*)(buffer.lpData);
-    
+
         // Pitch Detection from Pitcher
         int k, chan;
 
@@ -339,21 +343,21 @@ int main(const int nParams, const char* const paramStr[])
         bufferVector.resize(numSamples);
 
         for (chan = 0; chan < NUM_CHANNELS; chan++) {
-         for (k = chan; k < numSamples; k += NUM_CHANNELS) {
-              // Convert each value in the buffer into a complex number
-             bufferVector[k] = CNum(sampleBuffer[k], 0);
-         }
-       }
+            for (k = chan; k < numSamples; k += NUM_CHANNELS) {
+                // Convert each value in the buffer into a complex number
+                bufferVector[k] = CNum(sampleBuffer[k], 0);
+            }
+        }
 
-            // Calculate the fundamental frequency
-         double fund = fundamental(bufferVector, SAMPLE_RATE);
-         // Calculate the target freqency and scale factor
-         double cent_diff = getTargetFreq(fund);
-         cout << "****" << endl;
-         cout << cent_diff << endl;
-    
-        soundTouch->setPitchSemiTones(cent_diff);
-    
+        // Calculate the fundamental frequency
+        double fund = fundamental(bufferVector, SAMPLE_RATE);
+        // Calculate the target freqency and scale factor
+        double cent_diff = getTargetFreq(fund);
+        cout << "****" << endl;
+        cout << cent_diff << endl;
+
+        soundTouch.setPitchSemiTones(cent_diff);
+
 
         // clock_t cs = clock();    // for benchmarking processing duration
         // Process the sound
@@ -361,35 +365,36 @@ int main(const int nParams, const char* const paramStr[])
         // clock_t ce = clock();    // for benchmarking processing duration
         // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
 
-        
+
     // move the buffer to output
-    cout << "WaveOut" << endl;
-     //Focusing on writing to output file instead
-    
-    Sleep(1000);
-    res = waveOutWrite(outStream, &buffer, sizeof(WAVEHDR));
-    if (res == MMSYSERR_NOERROR) {
-        cout << "WAVEOUT WITHOUT ERROR" << endl;
-    }
-    else {
-        if (res == MMSYSERR_INVALHANDLE) {
-            return -7;
-        }
-        else if (res == MMSYSERR_NODRIVER) {
-            return -3;
-        }
-        else if (res == MMSYSERR_NOMEM) {
-            return -4;
-        }
-        else if (res == WAVERR_UNPREPARED) {
-            return -21;
+        cout << "WaveOut" << endl;
+        //Focusing on writing to output file instead
+
+        Sleep(1000);
+        res = waveOutWrite(outStream, &buffer, sizeof(WAVEHDR));
+        if (res == MMSYSERR_NOERROR) {
+            cout << "WAVEOUT WITHOUT ERROR" << endl;
         }
         else {
-            return -10;
+            if (res == MMSYSERR_INVALHANDLE) {
+                return -7;
+            }
+            else if (res == MMSYSERR_NODRIVER) {
+                return -3;
+            }
+            else if (res == MMSYSERR_NOMEM) {
+                return -4;
+            }
+            else if (res == WAVERR_UNPREPARED) {
+                return -21;
+            }
+            else {
+                return -10;
+            }
         }
+        Sleep(10000);
     }
-
-    Sleep(10000);
+    
     
 
     // Clean Up Work
