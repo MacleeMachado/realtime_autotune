@@ -10,7 +10,7 @@
 
 #include "targetfreq.h"
 
-int getTargetFreq(double actualFreq) {
+double getTargetFreq(double actualFreq) {
   // Frequency in Hz of A4
   double A4 = 440;
   // Frequency in Hz of C0
