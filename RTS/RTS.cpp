@@ -173,7 +173,7 @@ int main(const int nParams, const char* const paramStr[])
 
     //cout << paramStr[0] << " " << paramStr[1] << " " << paramStr[2] << endl;
 
-    const char* const paramS[] = {"RTS.exe", "null", "test.wav", "-pitch=5"};
+    const char* const paramS[] = {"RTS.exe", "null", "test.wav"};
 
     cout << paramS << endl;
 
@@ -182,7 +182,7 @@ int main(const int nParams, const char* const paramStr[])
 
 
     // Parse command line parameters
-    params = new RunParameters(4, paramS);
+    params = new RunParameters(3, paramS);
 
     // Open output file
     openOutputFile(&outFile, params);
@@ -348,9 +348,11 @@ int main(const int nParams, const char* const paramStr[])
             // Calculate the fundamental frequency
          double fund = fundamental(bufferVector, SAMPLE_RATE);
          // Calculate the target freqency and scale factor
-         int cent_diff = getTargetFreq(fund);
+         double cent_diff = getTargetFreq(fund);
          cout << "****" << endl;
          cout << cent_diff << endl;
+    
+        soundTouch->setPitchSemiTones(cent_diff);
     
 
         // clock_t cs = clock();    // for benchmarking processing duration
