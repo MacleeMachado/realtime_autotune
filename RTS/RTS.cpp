@@ -31,12 +31,12 @@
 
 //67200 and 268800
 
-#define NUM_FRAMES 67200 // BUFF_SIZE / 4
+#define NUM_FRAMES 1024 // BUFF_SIZE / 4
 #define NUM_CHANNELS 2
 #define SAMPLE_RATE 22050
 #define NUM_BITS 16
 // Processing chunk size (size chosen to be divisible by 2, 4, 6, 8, 10, 12, 14, 16 channels ...)
-#define BUFF_SIZE           268800
+#define BUFF_SIZE           4096
 
 using namespace soundtouch;
 using namespace std;
