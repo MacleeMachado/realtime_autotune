@@ -14,6 +14,6 @@
  * @param actualFreq The frequency of the signal (can be estimated using
  *     fundamental())
  */
-int getTargetFreq(double actualFreq);
+double getTargetFreq(double actualFreq);
 
 #endif
