@@ -168,7 +168,7 @@ int main(const int nParams, const char* const paramStr[])
     HWAVEIN   inStream;
     HWAVEOUT outStream;
     WAVEFORMATEX waveFormat;
-    WAVEHDR buffer;
+    WAVEHDR buffer[4];
     MMRESULT res;
 
     //cout << paramStr[0] << " " << paramStr[1] << " " << paramStr[2] << endl;
@@ -263,18 +263,21 @@ int main(const int nParams, const char* const paramStr[])
         }
     }
 
-    buffer.dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
-    buffer.lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
-    buffer.dwFlags = 0;
-
+    for(int i = 0; i < 4; i++) {
+        buffer[i].dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
+        buffer[i].lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
+        buffer[i].dwFlags = 0;
+    }
+        
+    int idx = 0;
     while (true) {
 
         // initialize the input and output PingPong buffers
-        memset(buffer.lpData, 0, NUM_FRAMES * (waveFormat.nBlockAlign));
-        buffer.dwFlags = 0;
+        memset(buffer[idx].lpData, 0, NUM_FRAMES * (waveFormat.nBlockAlign));
+        buffer[idx].dwFlags = 0;
 
         cout << "WAVE IN PREPARE" << endl;
-        res = waveInPrepareHeader(inStream, &buffer, sizeof(WAVEHDR));
+        res = waveInPrepareHeader(inStream, &buffer[idx], sizeof(WAVEHDR));
         if (res == MMSYSERR_NOERROR) {
             cout << "PREPARED WITHOUT ERROR" << endl;
         }
@@ -292,7 +295,7 @@ int main(const int nParams, const char* const paramStr[])
                 return -10;
             }
         }
-        res = waveOutPrepareHeader(outStream, &buffer, sizeof(WAVEHDR));
+        res = waveOutPrepareHeader(outStream, &buffer[idx], sizeof(WAVEHDR));
         if (res == MMSYSERR_NOERROR) {
             cout << "PREPARED WITHOUT ERROR" << endl;
         }
@@ -311,9 +314,9 @@ int main(const int nParams, const char* const paramStr[])
             }
         }
 
-        cout << "Flags: " << buffer.dwFlags << endl;
+        cout << "Flags: " << buffer[idx].dwFlags << endl;
 
-        if (buffer.dwFlags & WHDR_PREPARED) {
+        if (buffer[idx].dwFlags & WHDR_PREPARED) {
             cout << "PREPARED" << endl;
         }
 
@@ -321,19 +324,19 @@ int main(const int nParams, const char* const paramStr[])
     
         cout << "reset event" << endl;
         ResetEvent(event);
-        waveInAddBuffer(inStream, &buffer, sizeof(WAVEHDR));
+        waveInAddBuffer(inStream, &buffer[idx], sizeof(WAVEHDR));
         waveInStart(inStream);
 
         cout << "while" << endl;
-        cout << "Wanted Length: " << buffer.dwBufferLength << endl;
-        cout << "First Byte Rec: " << buffer.dwBytesRecorded << endl;
-        while (!(buffer.dwFlags & WHDR_DONE)) {
-            //cout << "flag: " << buffer.dwFlags << endl;
-            cout << "Bytes Rec: " << buffer.dwBytesRecorded << endl;
+        cout << "Wanted Length: " << buffer[idx].dwBufferLength << endl;
+        cout << "First Byte Rec: " << buffer[idx].dwBytesRecorded << endl;
+        while (!(buffer[idx].dwFlags & WHDR_DONE)) {
+            //cout << "flag: " << buffer[idx].dwFlags << endl;
+            cout << "Bytes Rec: " << buffer[idx].dwBytesRecorded << endl;
         }// poll until buffer is full
 
-        int numSamples = buffer.dwBytesRecorded / 4;
-        short* sampleBuffer = (short*)(buffer.lpData);
+        int numSamples = buffer[idx].dwBytesRecorded / 4;
+        short* sampleBuffer = (short*)(buffer[idx].lpData);
 
         // Pitch Detection from Pitcher
         int k, chan;
@@ -371,7 +374,7 @@ int main(const int nParams, const char* const paramStr[])
         //Focusing on writing to output file instead
 
         Sleep(1000);
-        res = waveOutWrite(outStream, &buffer, sizeof(WAVEHDR));
+        res = waveOutWrite(outStream, &buffer[idx], sizeof(WAVEHDR));
         if (res == MMSYSERR_NOERROR) {
             cout << "WAVEOUT WITHOUT ERROR" << endl;
         }
@@ -393,19 +396,24 @@ int main(const int nParams, const char* const paramStr[])
             }
         }
         Sleep(10000);
+        idx++;
+        if (idx == 4) {
+            idx = 0;
+        }
     }
     
     
 
     // Clean Up Work
-    waveOutUnprepareHeader(outStream, &buffer, sizeof(WAVEHDR));
-    waveInUnprepareHeader(inStream, &buffer, sizeof(WAVEHDR));
+    for(int i = 0; i < 4; i++) {
+        waveOutUnprepareHeader(outStream, &buffer[i], sizeof(WAVEHDR));
+        waveInUnprepareHeader(inStream, &buffer[i], sizeof(WAVEHDR));
+        buffer[i].lpData = NULL;
+    }
     waveInClose(inStream);
     waveOutClose(outStream);
     // Close WAV file handles & dispose of the objects
   
     delete outFile;
     delete params;
-
-    buffer.lpData = NULL;
 }
