@@ -31,12 +31,12 @@
 
 //67200 and 268800
 
-#define NUM_FRAMES 1024 // BUFF_SIZE / 4
+#define NUM_FRAMES 1680 // BUFF_SIZE / 4
 #define NUM_CHANNELS 2
 #define SAMPLE_RATE 22050
 #define NUM_BITS 16
 // Processing chunk size (size chosen to be divisible by 2, 4, 6, 8, 10, 12, 14, 16 channels ...)
-#define BUFF_SIZE           4096
+#define BUFF_SIZE           6720
 
 using namespace soundtouch;
 using namespace std;
@@ -263,10 +263,17 @@ int main(const int nParams, const char* const paramStr[])
         }
     }
 
+    
+
     for(int i = 0; i < 4; i++) {
         buffer[i].dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
         buffer[i].lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
         buffer[i].dwFlags = 0;
+    }
+    
+    CVector bufferVector[4];
+    for (int i = 0; i < 4; i++) {
+        bufferVector[i].resize(NUM_FRAMES);
     }
         
     int idx = 0;
@@ -274,6 +281,8 @@ int main(const int nParams, const char* const paramStr[])
 
         // initialize the input and output PingPong buffers
         memset(buffer[idx].lpData, 0, NUM_FRAMES * (waveFormat.nBlockAlign));
+        buffer[idx].dwBytesRecorded = 0;
+        //memset(bufferVector[idx], 0, NUM_FRAMES);
         buffer[idx].dwFlags = 0;
 
         cout << "WAVE IN PREPARE" << endl;
@@ -342,18 +351,17 @@ int main(const int nParams, const char* const paramStr[])
         int k, chan;
 
         // Construct a valarray of complex numbers from the input buffer
-        CVector bufferVector;
-        bufferVector.resize(numSamples);
+        //bufferVector[idx].resize(numSamples);
 
         for (chan = 0; chan < NUM_CHANNELS; chan++) {
             for (k = chan; k < numSamples; k += NUM_CHANNELS) {
                 // Convert each value in the buffer into a complex number
-                bufferVector[k] = CNum(sampleBuffer[k], 0);
+                bufferVector[idx][k] = CNum(sampleBuffer[k], 0);
             }
         }
 
         // Calculate the fundamental frequency
-        double fund = fundamental(bufferVector, SAMPLE_RATE);
+        double fund = fundamental(bufferVector[idx], SAMPLE_RATE);
         // Calculate the target freqency and scale factor
         double cent_diff = getTargetFreq(fund);
         cout << "****" << endl;
@@ -373,7 +381,25 @@ int main(const int nParams, const char* const paramStr[])
         cout << "WaveOut" << endl;
         //Focusing on writing to output file instead
 
-        Sleep(1000);
+        //Sleep(1000);
+        DWORD ans = WaitForSingleObject(event, INFINITE);
+        if (ans == WAIT_OBJECT_0) {
+            cout << "WAIT for single object successful" << endl;
+        }
+        else {
+            if (ans == WAIT_ABANDONED) {
+                return -8;
+            }
+            else if (ans == WAIT_TIMEOUT) {
+                return -20;
+            }
+            else if (ans == WAIT_FAILED) {
+                return -26;
+            }
+            else {
+                return -15;
+            }
+        }
         res = waveOutWrite(outStream, &buffer[idx], sizeof(WAVEHDR));
         if (res == MMSYSERR_NOERROR) {
             cout << "WAVEOUT WITHOUT ERROR" << endl;
@@ -395,7 +421,7 @@ int main(const int nParams, const char* const paramStr[])
                 return -10;
             }
         }
-        Sleep(10000);
+        //Sleep(10000);
         idx++;
         if (idx == 4) {
             idx = 0;
