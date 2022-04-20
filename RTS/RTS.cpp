@@ -14,6 +14,8 @@
 #include <time.h>
 #include <io.h>
 #include <fcntl.h>
+#include <fstream>
+#include <sstream>
 
 #include "SoundTouch.h"
 #include "RunParameters.h"
@@ -43,6 +45,16 @@ using namespace std;
 
 #define SET_STREAM_TO_BIN_MODE(f) (_setmode(_fileno(f), _O_BINARY))
 
+#define NUM_BUF 4
+
+static HWAVEIN inStream;
+static HWAVEOUT outStream;
+static CVector bufferVector[NUM_BUF];
+static SoundTouch soundTouch;
+static WavOutFile* outFile;
+static int callbackValid;
+
+WAVEHDR buffer[NUM_BUF];
 
 static void openOutputFile(WavOutFile** outFile, const RunParameters* params)
 {
@@ -158,28 +170,73 @@ static void process(SoundTouch* pSoundTouch, short* sampleBuffer, WavOutFile* ou
     } while (nSamples != 0);
 }
 
+static void CALLBACK myWaveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
+{
+    if (!callbackValid) {
+        return;
+    }
+    
+    static int _iBuf;
+
+    int numSamples = buffer[_iBuf].dwBytesRecorded / 4;
+    short* sampleBuffer = (short*)(buffer[_iBuf].lpData);
+
+    // Pitch Detection from Pitcher
+    int k, chan;
+
+    // Construct a valarray of complex numbers from the input buffer
+    bufferVector[_iBuf].resize(numSamples);
+
+    for (chan = 0; chan < NUM_CHANNELS; chan++) {
+        for (k = chan; k < numSamples; k += NUM_CHANNELS) {
+            // Convert each value in the buffer into a complex number
+            bufferVector[_iBuf][k] = CNum(sampleBuffer[k], 0);
+        }
+    }
+
+    // Calculate the fundamental frequency
+    double fund = fundamental(bufferVector[_iBuf], SAMPLE_RATE);
+    // Calculate the target freqency and scale factor
+    double cent_diff = getTargetFreq(fund);
+    //cout << "****" << endl;
+    //cout << cent_diff << endl;
+
+    soundTouch.setPitchSemiTones(cent_diff);
+
+
+    // clock_t cs = clock();    // for benchmarking processing duration
+    // Process the sound
+    process(&soundTouch, sampleBuffer, outFile, numSamples);
+    // clock_t ce = clock();    // for benchmarking processing duration
+    // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
+
+    waveOutWrite(outStream, &buffer[_iBuf], sizeof(WAVEHDR));   // play audio
+    //cout << "callback" << endl;
+    ++_iBuf;
+    if (_iBuf == NUM_BUF)   _iBuf = 0;
+    waveInAddBuffer(inStream, &buffer[_iBuf], sizeof(WAVEHDR));
+}
 
 int main(const int nParams, const char* const paramStr[])
 {
-
-    WavOutFile* outFile;
     RunParameters* params;
-    SoundTouch soundTouch;
-    HWAVEIN   inStream;
-    HWAVEOUT outStream;
+    //HWAVEIN   inStream;
+    //HWAVEOUT outStream;
     WAVEFORMATEX waveFormat;
-    WAVEHDR buffer[4];
+    //WAVEHDR buffer[4];
     MMRESULT res;
+
+    for (int i = 0; i < NUM_BUF; i++) {
+        bufferVector[i].resize(NUM_FRAMES);
+    }
 
     //cout << paramStr[0] << " " << paramStr[1] << " " << paramStr[2] << endl;
 
-    const char* const paramS[] = {"RTS.exe", "null", "test.wav"};
+    const char* const paramS[] = { "RTS.exe", "null", "test.wav" };
 
     cout << paramS << endl;
 
     // SoundStretch SetUp
-
-
 
     // Parse command line parameters
     params = new RunParameters(3, paramS);
@@ -206,12 +263,18 @@ int main(const int nParams, const char* const paramStr[])
     wstring temp = wstring(str.begin(), str.end());
     LPCWSTR widestring = temp.c_str();
 
-    // Event: default security descriptor, Manual Reset, initial non-signaled
-    HANDLE event = CreateEvent(NULL, TRUE, FALSE, widestring);
+    for (int i = 0; i < NUM_BUF; i++) {
+        buffer[i].dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
+        buffer[i].lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
+        buffer[i].dwFlags = 0;
+    }
 
-    cout << "waveinopen" << endl;
-    res = waveInOpen(&inStream, WAVE_MAPPER, &waveFormat, (unsigned long)event,
-        0, CALLBACK_EVENT);
+    //Strating here
+    short int* _pBuf;
+    size_t bpbuff = (waveFormat.nSamplesPerSec) * (waveFormat.nChannels) * (waveFormat.wBitsPerSample) / 8;
+    _pBuf = new short int[bpbuff * NUM_BUF];
+
+    res = waveInOpen(&inStream, WAVE_MAPPER, &waveFormat, (DWORD_PTR)myWaveInProc, 0L, CALLBACK_FUNCTION);
     if (res == MMSYSERR_NOERROR) {
         cout << "WAVEIN OPENED WITHOUT ERROR" << endl;
     }
@@ -236,9 +299,7 @@ int main(const int nParams, const char* const paramStr[])
         }
     }
 
-    cout << "waveoutopen" << endl;
-    res = waveOutOpen(&outStream, WAVE_MAPPER, &waveFormat, (unsigned long)event,
-        0, CALLBACK_EVENT);
+    res = waveOutOpen(&outStream, WAVE_MAPPER, &waveFormat, NULL, 0, CALLBACK_NULL);
     if (res == MMSYSERR_NOERROR) {
         cout << "WAVEOUT OPENED WITHOUT ERROR" << endl;
     }
@@ -263,30 +324,14 @@ int main(const int nParams, const char* const paramStr[])
         }
     }
 
-    
-
-    for(int i = 0; i < 4; i++) {
-        buffer[i].dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
-        buffer[i].lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
-        buffer[i].dwFlags = 0;
-    }
-    
-    CVector bufferVector[4];
-    for (int i = 0; i < 4; i++) {
-        bufferVector[i].resize(NUM_FRAMES);
-    }
-        
-    int idx = 0;
-    while (true) {
-
-        // initialize the input and output PingPong buffers
-        memset(buffer[idx].lpData, 0, NUM_FRAMES * (waveFormat.nBlockAlign));
-        buffer[idx].dwBytesRecorded = 0;
-        //memset(bufferVector[idx], 0, NUM_FRAMES);
-        buffer[idx].dwFlags = 0;
-
-        cout << "WAVE IN PREPARE" << endl;
-        res = waveInPrepareHeader(inStream, &buffer[idx], sizeof(WAVEHDR));
+    // initialize all headers in the queue
+    for (int i = 0; i < NUM_BUF; i++)
+    {
+        buffer[i].lpData = (LPSTR)&_pBuf[i * bpbuff];
+        buffer[i].dwBufferLength = bpbuff * sizeof(*_pBuf);
+        buffer[i].dwFlags = 0L;
+        buffer[i].dwLoops = 0L;
+        res = waveInPrepareHeader(inStream, &buffer[i], sizeof(WAVEHDR));
         if (res == MMSYSERR_NOERROR) {
             cout << "PREPARED WITHOUT ERROR" << endl;
         }
@@ -304,7 +349,7 @@ int main(const int nParams, const char* const paramStr[])
                 return -10;
             }
         }
-        res = waveOutPrepareHeader(outStream, &buffer[idx], sizeof(WAVEHDR));
+        /*res = waveOutPrepareHeader(outStream, &buffer[i], sizeof(WAVEHDR));
         if (res == MMSYSERR_NOERROR) {
             cout << "PREPARED WITHOUT ERROR" << endl;
         }
@@ -321,117 +366,22 @@ int main(const int nParams, const char* const paramStr[])
             else {
                 return -10;
             }
-        }
-
-        cout << "Flags: " << buffer[idx].dwFlags << endl;
-
-        if (buffer[idx].dwFlags & WHDR_PREPARED) {
-            cout << "PREPARED" << endl;
-        }
-
-    // Processing While Loop (!) Need to decide how much read setup must be included.
-    
-        cout << "reset event" << endl;
-        ResetEvent(event);
-        waveInAddBuffer(inStream, &buffer[idx], sizeof(WAVEHDR));
-        waveInStart(inStream);
-
-        cout << "while" << endl;
-        cout << "Wanted Length: " << buffer[idx].dwBufferLength << endl;
-        cout << "First Byte Rec: " << buffer[idx].dwBytesRecorded << endl;
-        while (!(buffer[idx].dwFlags & WHDR_DONE)) {
-            //cout << "flag: " << buffer[idx].dwFlags << endl;
-            cout << "Bytes Rec: " << buffer[idx].dwBytesRecorded << endl;
-        }// poll until buffer is full
-
-        int numSamples = buffer[idx].dwBytesRecorded / 4;
-        short* sampleBuffer = (short*)(buffer[idx].lpData);
-
-        // Pitch Detection from Pitcher
-        int k, chan;
-
-        // Construct a valarray of complex numbers from the input buffer
-        //bufferVector[idx].resize(numSamples);
-
-        for (chan = 0; chan < NUM_CHANNELS; chan++) {
-            for (k = chan; k < numSamples; k += NUM_CHANNELS) {
-                // Convert each value in the buffer into a complex number
-                bufferVector[idx][k] = CNum(sampleBuffer[k], 0);
-            }
-        }
-
-        // Calculate the fundamental frequency
-        double fund = fundamental(bufferVector[idx], SAMPLE_RATE);
-        // Calculate the target freqency and scale factor
-        double cent_diff = getTargetFreq(fund);
-        cout << "****" << endl;
-        cout << cent_diff << endl;
-
-        soundTouch.setPitchSemiTones(cent_diff);
-
-
-        // clock_t cs = clock();    // for benchmarking processing duration
-        // Process the sound
-        process(&soundTouch, sampleBuffer, outFile, numSamples);
-        // clock_t ce = clock();    // for benchmarking processing duration
-        // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
-
-
-    // move the buffer to output
-        cout << "WaveOut" << endl;
-        //Focusing on writing to output file instead
-
-        //Sleep(1000);
-        DWORD ans = WaitForSingleObject(event, INFINITE);
-        if (ans == WAIT_OBJECT_0) {
-            cout << "WAIT for single object successful" << endl;
-        }
-        else {
-            if (ans == WAIT_ABANDONED) {
-                return -8;
-            }
-            else if (ans == WAIT_TIMEOUT) {
-                return -20;
-            }
-            else if (ans == WAIT_FAILED) {
-                return -26;
-            }
-            else {
-                return -15;
-            }
-        }
-        res = waveOutWrite(outStream, &buffer[idx], sizeof(WAVEHDR));
-        if (res == MMSYSERR_NOERROR) {
-            cout << "WAVEOUT WITHOUT ERROR" << endl;
-        }
-        else {
-            if (res == MMSYSERR_INVALHANDLE) {
-                return -7;
-            }
-            else if (res == MMSYSERR_NODRIVER) {
-                return -3;
-            }
-            else if (res == MMSYSERR_NOMEM) {
-                return -4;
-            }
-            else if (res == WAVERR_UNPREPARED) {
-                return -21;
-            }
-            else {
-                return -10;
-            }
-        }
-        //Sleep(10000);
-        idx++;
-        if (idx == 4) {
-            idx = 0;
-        }
+        }*/
     }
-    
-    
+
+    waveInAddBuffer(inStream, &buffer[0], sizeof(WAVEHDR));
+
+    callbackValid = 1;
+
+    waveInStart(inStream);
+
+    //getchar();
+    Sleep(1000000);
+
+
 
     // Clean Up Work
-    for(int i = 0; i < 4; i++) {
+    for (int i = 0; i < NUM_BUF; i++) {
         waveOutUnprepareHeader(outStream, &buffer[i], sizeof(WAVEHDR));
         waveInUnprepareHeader(inStream, &buffer[i], sizeof(WAVEHDR));
         buffer[i].lpData = NULL;
@@ -439,7 +389,10 @@ int main(const int nParams, const char* const paramStr[])
     waveInClose(inStream);
     waveOutClose(outStream);
     // Close WAV file handles & dispose of the objects
-  
+
     delete outFile;
     delete params;
+    delete _pBuf;
+
+    return 0;
 }
