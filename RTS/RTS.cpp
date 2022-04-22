@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 #include "SoundTouch.h"
 #include "RunParameters.h"
@@ -29,7 +30,15 @@
 //#include "targetfreq.h"
 #include <string>
 
+#include <thread>
+
 #pragma comment (lib, "winmm.lib")
+
+using namespace soundtouch;
+using namespace std;
+
+vector<clock_t> cs;
+vector<clock_t> ce;
 
 //67200 and 268800
 
@@ -40,8 +49,8 @@
 // Processing chunk size (size chosen to be divisible by 2, 4, 6, 8, 10, 12, 14, 16 channels ...)
 #define BUFF_SIZE           6720
 
-using namespace soundtouch;
-using namespace std;
+
+
 
 #define SET_STREAM_TO_BIN_MODE(f) (_setmode(_fileno(f), _O_BINARY))
 
@@ -52,6 +61,9 @@ static HWAVEOUT outStream;
 static CVector bufferVector[NUM_BUF];
 static SoundTouch soundTouch;
 static int callbackValid;
+
+double runSum;
+int runCount;
 
 WAVEHDR buffer[NUM_BUF];
 
@@ -86,8 +98,6 @@ static void process(SoundTouch* pSoundTouch, short* sampleBuffer, DWORD nSamples
 {
     int nChannels;
     int buffSizeSamples;
-
-    if (outFile == NULL) return;  // nothing to do.
 
     nChannels = NUM_CHANNELS;
     assert(nChannels > 0);
@@ -126,6 +136,13 @@ static void CALLBACK myWaveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, 
     }
     
     static int _iBuf;
+    int _iBufTemp = _iBuf + 1;
+
+    if (_iBufTemp == NUM_BUF)   _iBufTemp = 0;
+
+    
+    cs.push_back(clock());
+    waveInAddBuffer(inStream, &buffer[_iBufTemp], sizeof(WAVEHDR));
 
     int numSamples = buffer[_iBuf].dwBytesRecorded / 4;
     short* sampleBuffer = (short*)(buffer[_iBuf].lpData);
@@ -153,17 +170,17 @@ static void CALLBACK myWaveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, 
     soundTouch.setPitchSemiTones(cent_diff);
 
 
-    // clock_t cs = clock();    // for benchmarking processing duration
+    //clock_t cs = clock();    // for benchmarking processing duration
     // Process the sound
     process(&soundTouch, sampleBuffer, numSamples);
-    // clock_t ce = clock();    // for benchmarking processing duration
+    //clock_t ce = clock();    // for benchmarking processing duration
     // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
 
     waveOutWrite(outStream, &buffer[_iBuf], sizeof(WAVEHDR));   // play audio
+    ce.push_back(clock());
     //cout << "callback" << endl;
     ++_iBuf;
     if (_iBuf == NUM_BUF)   _iBuf = 0;
-    waveInAddBuffer(inStream, &buffer[_iBuf], sizeof(WAVEHDR));
 }
 
 int main(const int nParams, const char* const paramStr[])
@@ -171,6 +188,9 @@ int main(const int nParams, const char* const paramStr[])
     RunParameters* params;
     WAVEFORMATEX waveFormat;
     MMRESULT res;
+
+    runSum = 0;
+    runCount = 0;
 
     for (int i = 0; i < NUM_BUF; i++) {
         bufferVector[i].resize(NUM_FRAMES);
@@ -252,13 +272,16 @@ int main(const int nParams, const char* const paramStr[])
         }
     }
     
+    short int* _pBuf;
+    size_t bpbuff = (waveFormat.nSamplesPerSec) * (waveFormat.nChannels) * (waveFormat.wBitsPerSample) / 8;
+    _pBuf = new short int[bpbuff * NUM_BUF];
+
+
     // initialize all headers in the queue
     for (int i = 0; i < NUM_BUF; i++)
     {
-        // buffer[i].lpData = (LPSTR)&_pBuf[i * bpbuff];
-        // buffer[i].dwBufferLength = bpbuff * sizeof(*_pBuf);
-        buffer[i].dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
-        buffer[i].lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
+        buffer[i].lpData = (LPSTR)&_pBuf[i * bpbuff];
+        buffer[i].dwBufferLength = bpbuff * sizeof(*_pBuf);
         buffer[i].dwFlags = 0L;
         buffer[i].dwLoops = 0L;
         res = waveInPrepareHeader(inStream, &buffer[i], sizeof(WAVEHDR));
@@ -279,26 +302,9 @@ int main(const int nParams, const char* const paramStr[])
                 return -10;
             }
         }
-        /*res = waveOutPrepareHeader(outStream, &buffer[i], sizeof(WAVEHDR));
-        if (res == MMSYSERR_NOERROR) {
-            cout << "PREPARED WITHOUT ERROR" << endl;
-        }
-        else {
-            if (res == MMSYSERR_INVALHANDLE) {
-                return -7;
-            }
-            else if (res == MMSYSERR_NODRIVER) {
-                return -3;
-            }
-            else if (res == MMSYSERR_NOMEM) {
-                return -4;
-            }
-            else {
-                return -10;
-            }
-        }*/
     }
 
+    cs.push_back(clock());
     waveInAddBuffer(inStream, &buffer[0], sizeof(WAVEHDR));
 
     callbackValid = 1;
@@ -306,7 +312,15 @@ int main(const int nParams, const char* const paramStr[])
     waveInStart(inStream);
 
     //getchar();
-    Sleep(1000000);
+    Sleep(100000);
+
+
+    //cout << "ce nums: " << ce[0] << cs[0] << endl;
+    for (int i = 0; i < ce.size(); i++) {
+        runSum += (double)(ce[i] - cs[i]) / (double)CLOCKS_PER_SEC;
+    }
+    double runAvg = runSum / ce.size();
+    cout << "runAvg: " << runAvg << " secs" << endl;
 
 
 
@@ -321,7 +335,7 @@ int main(const int nParams, const char* const paramStr[])
     // Close WAV file handles & dispose of the objects
 
     delete params;
-    //delete _pBuf;
+    delete _pBuf;
 
     return 0;
 }
