@@ -51,33 +51,9 @@ static HWAVEIN inStream;
 static HWAVEOUT outStream;
 static CVector bufferVector[NUM_BUF];
 static SoundTouch soundTouch;
-static WavOutFile* outFile;
 static int callbackValid;
 
 WAVEHDR buffer[NUM_BUF];
-
-static void openOutputFile(WavOutFile** outFile, const RunParameters* params)
-{
-
-    if (params->outFileName)
-    {
-        if (strcmp(params->outFileName, "stdout") == 0)
-        {
-            SET_STREAM_TO_BIN_MODE(stdout);
-            *outFile = new WavOutFile(stdout, SAMPLE_RATE, NUM_BITS, NUM_CHANNELS);
-        }
-        else
-        {
-            *outFile = new WavOutFile(params->outFileName, SAMPLE_RATE, NUM_BITS, NUM_CHANNELS);
-        }
-    }
-    else
-    {
-        *outFile = NULL;
-    }
-}
-
-
 
 // Sets the 'SoundTouch' object up according to input file sound format & 
 // command line parameters
@@ -102,36 +78,11 @@ static void setup(SoundTouch* pSoundTouch, const RunParameters* params)
         pSoundTouch->setSetting(SETTING_OVERLAP_MS, 8);
         fprintf(stderr, "Tune processing parameters for speech processing.\n");
     }
-
-    // print processing information
-    if (params->outFileName)
-    {
-#ifdef SOUNDTOUCH_INTEGER_SAMPLES
-        fprintf(stderr, "Uses 16bit integer sample type in processing.\n\n");
-#else
-#ifndef SOUNDTOUCH_FLOAT_SAMPLES
-#error "Sampletype not defined"
-#endif
-        fprintf(stderr, "Uses 32bit floating point sample type in processing.\n\n");
-#endif
-        // print processing information only if outFileName given i.e. some processing will happen
-        fprintf(stderr, "Processing the file with the following changes:\n");
-        fprintf(stderr, "  tempo change = %+g %%\n", params->tempoDelta);
-        fprintf(stderr, "  pitch change = %+g semitones\n", params->pitchDelta);
-        fprintf(stderr, "  rate change  = %+g %%\n\n", params->rateDelta);
-        fprintf(stderr, "Working...");
-    }
-    else
-    {
-        // outFileName not given
-        fprintf(stderr, "Warning: output file name missing, won't output anything.\n\n");
-    }
-
     fflush(stderr);
 }
 
 // Processes the sound
-static void process(SoundTouch* pSoundTouch, short* sampleBuffer, WavOutFile* outFile, DWORD nSamples)
+static void process(SoundTouch* pSoundTouch, short* sampleBuffer, DWORD nSamples)
 {
     int nChannels;
     int buffSizeSamples;
@@ -157,7 +108,6 @@ static void process(SoundTouch* pSoundTouch, short* sampleBuffer, WavOutFile* ou
     do
     {
         nSamples = pSoundTouch->receiveSamples(sampleBuffer, buffSizeSamples);
-        outFile->write(sampleBuffer, nSamples * nChannels);
     } while (nSamples != 0);
 
     // Now the input file is processed, yet 'flush' few last samples that are
@@ -166,7 +116,6 @@ static void process(SoundTouch* pSoundTouch, short* sampleBuffer, WavOutFile* ou
     do
     {
         nSamples = pSoundTouch->receiveSamples(sampleBuffer, buffSizeSamples);
-        outFile->write(sampleBuffer, nSamples * nChannels);
     } while (nSamples != 0);
 }
 
@@ -206,7 +155,7 @@ static void CALLBACK myWaveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, 
 
     // clock_t cs = clock();    // for benchmarking processing duration
     // Process the sound
-    process(&soundTouch, sampleBuffer, outFile, numSamples);
+    process(&soundTouch, sampleBuffer, numSamples);
     // clock_t ce = clock();    // for benchmarking processing duration
     // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
 
@@ -220,29 +169,19 @@ static void CALLBACK myWaveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, 
 int main(const int nParams, const char* const paramStr[])
 {
     RunParameters* params;
-    //HWAVEIN   inStream;
-    //HWAVEOUT outStream;
     WAVEFORMATEX waveFormat;
-    //WAVEHDR buffer[4];
     MMRESULT res;
 
     for (int i = 0; i < NUM_BUF; i++) {
         bufferVector[i].resize(NUM_FRAMES);
     }
 
-    //cout << paramStr[0] << " " << paramStr[1] << " " << paramStr[2] << endl;
-
-    const char* const paramS[] = { "RTS.exe", "null", "test.wav" };
-
-    cout << paramS << endl;
+    const char* const paramS[] = { "RTS.exe", "null", "null" };
 
     // SoundStretch SetUp
 
     // Parse command line parameters
     params = new RunParameters(3, paramS);
-
-    // Open output file
-    openOutputFile(&outFile, params);
 
     // Setup the 'SoundTouch' object for processing the sound
     setup(&soundTouch, params);
@@ -262,17 +201,6 @@ int main(const int nParams, const char* const paramStr[])
     string str = "waveout event";
     wstring temp = wstring(str.begin(), str.end());
     LPCWSTR widestring = temp.c_str();
-
-    for (int i = 0; i < NUM_BUF; i++) {
-        buffer[i].dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
-        buffer[i].lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
-        buffer[i].dwFlags = 0;
-    }
-
-    //Strating here
-    short int* _pBuf;
-    size_t bpbuff = (waveFormat.nSamplesPerSec) * (waveFormat.nChannels) * (waveFormat.wBitsPerSample) / 8;
-    _pBuf = new short int[bpbuff * NUM_BUF];
 
     res = waveInOpen(&inStream, WAVE_MAPPER, &waveFormat, (DWORD_PTR)myWaveInProc, 0L, CALLBACK_FUNCTION);
     if (res == MMSYSERR_NOERROR) {
@@ -323,12 +251,14 @@ int main(const int nParams, const char* const paramStr[])
             return -6;
         }
     }
-
+    
     // initialize all headers in the queue
     for (int i = 0; i < NUM_BUF; i++)
     {
-        buffer[i].lpData = (LPSTR)&_pBuf[i * bpbuff];
-        buffer[i].dwBufferLength = bpbuff * sizeof(*_pBuf);
+        // buffer[i].lpData = (LPSTR)&_pBuf[i * bpbuff];
+        // buffer[i].dwBufferLength = bpbuff * sizeof(*_pBuf);
+        buffer[i].dwBufferLength = NUM_FRAMES * waveFormat.nBlockAlign;
+        buffer[i].lpData = (LPSTR)malloc(NUM_FRAMES * (waveFormat.nBlockAlign));
         buffer[i].dwFlags = 0L;
         buffer[i].dwLoops = 0L;
         res = waveInPrepareHeader(inStream, &buffer[i], sizeof(WAVEHDR));
@@ -390,9 +320,8 @@ int main(const int nParams, const char* const paramStr[])
     waveOutClose(outStream);
     // Close WAV file handles & dispose of the objects
 
-    delete outFile;
     delete params;
-    delete _pBuf;
+    //delete _pBuf;
 
     return 0;
 }
