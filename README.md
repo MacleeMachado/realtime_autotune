@@ -6,10 +6,10 @@ The main function, RTS.CPP is where our code is largely located. In this file we
 
 This continues until a button is pressed on the keyboard.
 
-#Install
+# Install
 To install this program, simpy clone this repository to your computer.
 
-#How-To-Run
+# How-To-Run
 The easiest way to run this is on windows, using Visual Studio 2020.
 If you are using Visual Studio 2020 you can simply pull this project into visual studio. 
 
@@ -20,4 +20,4 @@ Make sure to use a headset as if you do not there will be a feedback loop create
 There is a slight delay between input and output, roughly 2.5 seconds on average but you will be able to input while hearing the output.
 
 
-#Cleanup/Comments
+# Cleanup/Comments
