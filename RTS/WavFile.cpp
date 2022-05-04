@@ -15,6 +15,10 @@
 /// Author e-mail : oparviai 'at' iki.fi
 /// SoundTouch WWW: http://www.surina.net/soundtouch
 ///
+/// Modified for the RTS Semester Project Spring 2022:
+/// We disabled a handful of warnings using pragma
+/// during our debugging process.
+///
 ////////////////////////////////////////////////////////////////////////////////
 //
 // License :
