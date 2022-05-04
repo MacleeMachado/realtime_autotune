@@ -4,6 +4,9 @@
 // CMPUT 275, Winter 2018
 //
 // Final Project
+//
+// Modified for the RTS Semester Project Spring 2022
+//
 // -------------------------------------------------
 
 #include <cmath>
