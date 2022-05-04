@@ -10,10 +10,15 @@
 #define _TARGET_FREQ_H_
 
 /**
- * Returns amount of cents needed for autotune correction.
- * @param actualFreq The frequency of the signal (can be estimated using
- *     fundamental())
- */
+* getTargetFreq takes in the actual frequency of the sound
+* sample in Hz and converts this frequency into a number
+* of semitones away from C0. This value is then rounded,
+* with the difference between the rounded and actual
+* values being returned in order to perform pitch correction.
+*
+* @param actualFreq The frequency of the signal (can be estimated
+*      fundamental())
+*/
 double getTargetFreq(double actualFreq);
 
 #endif
