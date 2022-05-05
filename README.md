@@ -13,7 +13,7 @@ To install this program, simpy clone this repository to your computer.
 The easiest way to run this is on windows, using Visual Studio 2020.
 If you are using Visual Studio 2020 you can simply pull this project into visual studio. 
 
-Regardless of what you do to run the code set your speaker and microphone settings by going into their advanced setting to input and output at 24bits. Be sure that you are also using 2 channel on the speakers, in the same settings.
+Regardless of what you do to run the code set your speaker and microphone settings by going into their advanced setting to input and output at 16 bits, 48000 Hz. Be sure that you are also using 2 channel on the speakers, in the same settings.
 
 Make sure to use a headset as if you do not there will be a feedback loop created from when the program outputs to what it inputs. Start the program by running the RTS.cpp file in whatever program you want (in visual studio just hit the green button) otherwise make sure all the files are linked appropriately, no command line arguments are needed. Once you start the program wait a second for it to load then continually play or put in whatever input you desired to be tuned and it will be output to the headphones you are using.
 
