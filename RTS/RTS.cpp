@@ -234,11 +234,11 @@ int main(const int nParams, const char* const paramStr[])
         bufferVector[i].resize(NUM_FRAMES);
     }
 
+    /**********************  SoundStretch SetUp  **********************/
+    
     // The "null" arguments are for the input and output files, which
     // we do not use.
     const char* const paramS[] = { "RTS.exe", "null", "null" };
-
-    /**********************  SoundStretch SetUp  **********************/
 
     // Parse command line parameters
     params = new RunParameters(3, paramS);
