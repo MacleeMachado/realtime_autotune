@@ -23,11 +23,9 @@
 #include "WavFile.h"
 #include "BPMDetect.h"
 
-//#include "processbuffer.h"
 #include "fourier.h"
 #include "fundamental.h"
 #include "targetfreq.h"
-//#include "targetfreq.h"
 #include <string>
 
 #include <thread>
@@ -40,17 +38,12 @@ using namespace std;
 vector<clock_t> cs;
 vector<clock_t> ce;
 
-//67200 and 268800
-
 #define NUM_FRAMES 1680 // BUFF_SIZE / 4
 #define NUM_CHANNELS 2
 #define SAMPLE_RATE 22050
 #define NUM_BITS 16
 // Processing chunk size (size chosen to be divisible by 2, 4, 6, 8, 10, 12, 14, 16 channels ...)
 #define BUFF_SIZE           6720
-
-
-
 
 #define SET_STREAM_TO_BIN_MODE(f) (_setmode(_fileno(f), _O_BINARY))
 
@@ -67,11 +60,26 @@ int runCount;
 
 WAVEHDR buffer[NUM_BUF];
 
-// Sets the 'SoundTouch' object up according to input file sound format & 
-// command line parameters
+enum errors {
+    SUCCESS = 0,
+    ALLOCATED = -1,
+    BADDEVICEID = -2,
+    NODRIVER = -3,
+    NOMEM = -4,
+    BADFORMAT = -5,
+    UNKNOWN_WAV_IN_OPEN_ERROR = -6,
+    UNKNOWN_WAV_OUT_OPEN_ERROR = -7,
+    INVALHANDLE = -8,
+    UNKNOWN_WAV_IN_PREPARE_HEADER_ERROR = -9
+};
+
+/**
+* setup: Sets the 'SoundTouch' object up according to command line parameters
+* @param pSoundTouch pointer to the 'SoundTouch' object being setup
+* @param params pointer to the command line parameters
+*/
 static void setup(SoundTouch* pSoundTouch, const RunParameters* params)
 {
-
     pSoundTouch->setSampleRate(SAMPLE_RATE);
     pSoundTouch->setChannels(NUM_CHANNELS);
 
@@ -84,7 +92,7 @@ static void setup(SoundTouch* pSoundTouch, const RunParameters* params)
 
     if (params->speech)
     {
-        // use settings for speech processing
+        // Use settings for speech processing
         pSoundTouch->setSetting(SETTING_SEQUENCE_MS, 40);
         pSoundTouch->setSetting(SETTING_SEEKWINDOW_MS, 15);
         pSoundTouch->setSetting(SETTING_OVERLAP_MS, 8);
@@ -93,7 +101,14 @@ static void setup(SoundTouch* pSoundTouch, const RunParameters* params)
     fflush(stderr);
 }
 
-// Processes the sound
+// Processes the sound buffer
+/**
+* process: Processes the specified number of samples from the provided sample
+* buffer using the 'SoundTouch' object.
+* @param pSoundTouch pointer to the 'SoundTouch' object being processed
+* @param sampleBuffer pointer to the buffer of audio samples
+* @param nSamples the number of samples being processed
+*/
 static void process(SoundTouch* pSoundTouch, short* sampleBuffer, DWORD nSamples)
 {
     int nChannels;
@@ -103,11 +118,10 @@ static void process(SoundTouch* pSoundTouch, short* sampleBuffer, DWORD nSamples
     assert(nChannels > 0);
     buffSizeSamples = BUFF_SIZE / nChannels;
 
-
     // Feed the samples into SoundTouch processor
     pSoundTouch->putSamples(sampleBuffer, nSamples);
 
-    // Read ready samples from SoundTouch processor & write them output file.
+    // Read ready samples from SoundTouch processor.
     // NOTES:
     // - 'receiveSamples' doesn't necessarily return any samples at all
     //   during some rounds!
@@ -120,7 +134,7 @@ static void process(SoundTouch* pSoundTouch, short* sampleBuffer, DWORD nSamples
         nSamples = pSoundTouch->receiveSamples(sampleBuffer, buffSizeSamples);
     } while (nSamples != 0);
 
-    // Now the input file is processed, yet 'flush' few last samples that are
+    // Now the input buffer is processed, yet 'flush' few last samples that are
     // hiding in the SoundTouch's internal processing pipeline.
     pSoundTouch->flush();
     do
@@ -129,25 +143,44 @@ static void process(SoundTouch* pSoundTouch, short* sampleBuffer, DWORD nSamples
     } while (nSamples != 0);
 }
 
+/**
+* myWaveInProc: A callback function to process and output input sound buffers when they are full.
+* @param hwi
+* @param uMsg
+* @param dwInstance
+* @param dwParam1
+* @param dwParam2
+* All parameters are unused, but are necessary to pattern match the declaration of a CALLBACK function
+* for the Windows API.
+*/
 static void CALLBACK myWaveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
 {
+    // This logic skips over the first callback, which occurs when the callback function is established.
     if (!callbackValid) {
         return;
     }
     
     static int _iBuf;
+    // The _iBufTemp allows us to listen for input on the next sound buffer
+    // while processing and outputting the sound buffer that triggered 
+    // the callback function.
     int _iBufTemp = _iBuf + 1;
 
     if (_iBufTemp == NUM_BUF)   _iBufTemp = 0;
 
-    
+    // Here a start clock (cs) is added to the vector of start clocks.
+    // This is done here because it is right before an input buffer is
+    // released to be filled.
     cs.push_back(clock());
     waveInAddBuffer(inStream, &buffer[_iBufTemp], sizeof(WAVEHDR));
 
+    // The 4 here is due to the 2 byte samples across 2 channels.
     int numSamples = buffer[_iBuf].dwBytesRecorded / 4;
+    // This pointer conversion is necessary to properly consider 16 bit samples
+    // (instead of the default 8 bit samples inferred by the char * data type)
     short* sampleBuffer = (short*)(buffer[_iBuf].lpData);
 
-    // Pitch Detection from Pitcher
+    // Pitch Detection Logic adapted from Pitcher
     int k, chan;
 
     // Construct a valarray of complex numbers from the input buffer
@@ -162,33 +195,38 @@ static void CALLBACK myWaveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, 
 
     // Calculate the fundamental frequency
     double fund = fundamental(bufferVector[_iBuf], SAMPLE_RATE);
-    // Calculate the target freqency and scale factor
+    // Calculate the target frequency (how much pitch correction needs to occur)
+    // The term cent is used here because there are a 100 cents per semitone.
+    // Here we are modifying the pitch by cents to reach the nearest semitone.
     double cent_diff = getTargetFreq(fund);
-    //cout << "****" << endl;
-    //cout << cent_diff << endl;
 
     soundTouch.setPitchSemiTones(cent_diff);
 
-
-    //clock_t cs = clock();    // for benchmarking processing duration
-    // Process the sound
+    // Process the filled sound buffer
     process(&soundTouch, sampleBuffer, numSamples);
-    //clock_t ce = clock();    // for benchmarking processing duration
-    // printf("duration: %lf\n", (double)(ce-cs)/CLOCKS_PER_SEC);
 
-    waveOutWrite(outStream, &buffer[_iBuf], sizeof(WAVEHDR));   // play audio
+    // Output the processed sound buffer
+    waveOutWrite(outStream, &buffer[_iBuf], sizeof(WAVEHDR));
+    // Here an end clock (ce) is added to the vector of end clocks.
+    // This is done here because it is right after an input buffer is
+    // released to be output.
     ce.push_back(clock());
-    //cout << "callback" << endl;
+    
     ++_iBuf;
     if (_iBuf == NUM_BUF)   _iBuf = 0;
 }
 
+/**
+* This is the main function, where the functions defined above
+* are called to provide Real-Time Audio Processing functionality.
+*/
 int main(const int nParams, const char* const paramStr[])
 {
     RunParameters* params;
     WAVEFORMATEX waveFormat;
     MMRESULT res;
 
+    // Used for timing performance
     runSum = 0;
     runCount = 0;
 
@@ -196,9 +234,11 @@ int main(const int nParams, const char* const paramStr[])
         bufferVector[i].resize(NUM_FRAMES);
     }
 
+    // The "null" arguments are for the input and output files, which
+    // we do not use.
     const char* const paramS[] = { "RTS.exe", "null", "null" };
 
-    // SoundStretch SetUp
+    /**********************  SoundStretch SetUp  **********************/
 
     // Parse command line parameters
     params = new RunParameters(3, paramS);
@@ -206,69 +246,68 @@ int main(const int nParams, const char* const paramStr[])
     // Setup the 'SoundTouch' object for processing the sound
     setup(&soundTouch, params);
 
-    // Windows SetUp
+    /**********************  Windows SetUp  **********************/
 
     waveFormat.wFormatTag = WAVE_FORMAT_PCM;  // PCM audio
     waveFormat.nSamplesPerSec = SAMPLE_RATE;  // really 22050 frames/sec
     waveFormat.nChannels = 2;  // stereo
     waveFormat.wBitsPerSample = 16;  // 16bits per sample
     waveFormat.cbSize = 0;  // no extra data
+    // Given by usage information in the Windows API documentation
     waveFormat.nBlockAlign =
         waveFormat.nChannels * waveFormat.wBitsPerSample / 8;
     waveFormat.nAvgBytesPerSec =
         waveFormat.nBlockAlign * waveFormat.nSamplesPerSec;
 
-    string str = "waveout event";
-    wstring temp = wstring(str.begin(), str.end());
-    LPCWSTR widestring = temp.c_str();
-
+    // Opens the input wave stream, associating it with the myWaveInProc callback function.
     res = waveInOpen(&inStream, WAVE_MAPPER, &waveFormat, (DWORD_PTR)myWaveInProc, 0L, CALLBACK_FUNCTION);
     if (res == MMSYSERR_NOERROR) {
         cout << "WAVEIN OPENED WITHOUT ERROR" << endl;
     }
     else {
         if (res == MMSYSERR_ALLOCATED) {
-            return -1;
+            return ALLOCATED;
         }
         else if (res == MMSYSERR_BADDEVICEID) {
-            return -2;
+            return BADDEVICEID;
         }
         else if (res == MMSYSERR_NODRIVER) {
-            return -3;
+            return NODRIVER;
         }
         else if (res == MMSYSERR_NOMEM) {
-            return -4;
+            return NOMEM;
         }
         else if (res == WAVERR_BADFORMAT) {
-            return -5;
+            return BADFORMAT;
         }
         else {
-            return -6;
+            return UNKNOWN_WAV_IN_OPEN_ERROR;
         }
     }
 
+    // Opens the output wave stream
     res = waveOutOpen(&outStream, WAVE_MAPPER, &waveFormat, NULL, 0, CALLBACK_NULL);
     if (res == MMSYSERR_NOERROR) {
         cout << "WAVEOUT OPENED WITHOUT ERROR" << endl;
     }
     else {
         if (res == MMSYSERR_ALLOCATED) {
-            return -1;
+            return ALLOCATED;
         }
         else if (res == MMSYSERR_BADDEVICEID) {
-            return -2;
+            return BADDEVICEID;
         }
         else if (res == MMSYSERR_NODRIVER) {
-            return -3;
+            return NODRIVER;
         }
         else if (res == MMSYSERR_NOMEM) {
-            return -4;
+            return NOMEM;
         }
         else if (res == WAVERR_BADFORMAT) {
-            return -5;
+            return BADFORMAT;
         }
         else {
-            return -6;
+            return UNKOWN_WAV_OUT_OPEN_ERROR;
         }
     }
     
@@ -276,8 +315,7 @@ int main(const int nParams, const char* const paramStr[])
     size_t bpbuff = (waveFormat.nSamplesPerSec) * (waveFormat.nChannels) * (waveFormat.wBitsPerSample) / 8;
     _pBuf = new short int[bpbuff * NUM_BUF];
 
-
-    // initialize all headers in the queue
+    // Initialize all headers in the queue
     for (int i = 0; i < NUM_BUF; i++)
     {
         buffer[i].lpData = (LPSTR)&_pBuf[i * bpbuff];
@@ -290,39 +328,44 @@ int main(const int nParams, const char* const paramStr[])
         }
         else {
             if (res == MMSYSERR_INVALHANDLE) {
-                return -7;
+                return INVALHANDLE;
             }
             else if (res == MMSYSERR_NODRIVER) {
-                return -3;
+                return NODRIVER;
             }
             else if (res == MMSYSERR_NOMEM) {
-                return -4;
+                return NOMEM;
             }
             else {
-                return -10;
+                return UNKOWN_WAV_IN_PREPARE_HEADER_ERROR;
             }
         }
     }
 
+    // Here a start clock (cs) is added to the vector of start clocks.
+    // This is done here because it is right before an input buffer is
+    // released to be filled.
     cs.push_back(clock());
     waveInAddBuffer(inStream, &buffer[0], sizeof(WAVEHDR));
 
+    // Now that all the buffers are properly intialized and the first
+    // buffer is being filled, the callback function is now valid.
     callbackValid = 1;
 
     waveInStart(inStream);
 
-    //getchar();
+    // This keeps the function from exiting, allowing for continuous
+    // input and output until the program is killed or the timer
+    // expires.
     Sleep(100000);
 
-
-    //cout << "ce nums: " << ce[0] << cs[0] << endl;
+    // This logic calculates the average processing time across
+    // the various runs.
     for (int i = 0; i < ce.size(); i++) {
         runSum += (double)(ce[i] - cs[i]) / (double)CLOCKS_PER_SEC;
     }
     double runAvg = runSum / ce.size();
     cout << "runAvg: " << runAvg << " secs" << endl;
-
-
 
     // Clean Up Work
     for (int i = 0; i < NUM_BUF; i++) {
@@ -332,10 +375,9 @@ int main(const int nParams, const char* const paramStr[])
     }
     waveInClose(inStream);
     waveOutClose(outStream);
-    // Close WAV file handles & dispose of the objects
 
     delete params;
     delete _pBuf;
 
-    return 0;
+    return SUCCESS;
 }
