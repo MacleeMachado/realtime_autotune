@@ -18,6 +18,3 @@ Regardless of what you do to run the code set your speaker and microphone settin
 Make sure to use a headset as if you do not there will be a feedback loop created from when the program outputs to what it inputs. Start the program by running the RTS.cpp file in whatever program you want (in visual studio just hit the green button) otherwise make sure all the files are linked appropriately, no command line arguments are needed. Once you start the program wait a second for it to load then continually play or put in whatever input you desired to be tuned and it will be output to the headphones you are using.
 
 There is a slight delay between input and output, roughly 2.5 seconds on average but you will be able to input while hearing the output.
-
-
-# Cleanup/Comments
